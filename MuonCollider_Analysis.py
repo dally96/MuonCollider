@@ -50,12 +50,21 @@ tmpPz_Squared = np.square(tmpP[3])
 tmpPr = np.sqrt(tmpPx_Squared + tmpPy_Squared)
 tmpMom = np.sqrt(tmpPx_Squared + tmpPy_Squared + tmpPz_Squared)
 
+##Smearing arrays
+ThetaRes = 0.025 #rad
+TimeRes = 30e-3 #ns
+tmpNumEntries = tmpPos.size
+tmpThetaSmr = np.random.normal(0.0,ThetaRes,tmpNumEntries)
+tmpTimeSmr =  np.random.normal(0.0,TimeRes, tmpNumEntries)
+
 tmpTheta = np.arctan2(tmpPr,tmpP[3])
+tmpTheta = np.add(tmpTheta,tmpThetaSmr)
 tmpThetaEx = np.arctan2(tmpR,tmpX[3])
 tmpThetaDiff = np.subtract(tmpTheta,tmpThetaEx)
 tmpAbsThetaDiff = np.absolute(tmpThetaDiff)
 
 tmpTime = fullBIBTree["sttim"].array()[0]
+tmpTime = np.add(tmpTime,tmpTimeSmr)
 tmpTimeEx = tmpPos/SpeedOfLight
 tmpTimeDiff = np.subtract(tmpTime,tmpTimeEx)
 tmpAbsTimeDiff = np.absolute(tmpTimeDiff)
@@ -108,11 +117,19 @@ hsPr = np.sqrt(hsPx_Squared + hsPy_Squared)
 hsMom = np.sqrt(hsPx_Squared + hsPy_Squared + hsPz_Squared)
 
 hsTheta = np.arctan2(hsPr,hsP[3])
+'''for event in range(len(hsTheta)):
+    eventSize = len(hsTheta[event])
+    hsTheta[event] = np.add(hsTheta[event], np.random.normal(0.0,ThetaRes,eventSize))'''
+hsTheta = np.add(hsTheta, np.random.normal(0.0,ThetaRes,999))
 hsThetaEx = np.arctan2(hsR,hsX[3])
 hsThetaDiff = np.subtract(hsTheta,hsThetaEx)
 hsAbsThetaDiff = np.absolute(hsThetaDiff)
 
 hsTime = noBIBTree["sttim"].array()
+'''for event in range(len(hsTime)):
+    eventSize = len(hsTime[event])
+    hsTime[event] = np.add(hsTime[event], np.random.normal(0.0,TimeRes,eventSize))'''
+hsTime = np.add(hsTime, np.random.normal(0.0,TimeRes,999))
 hsTimeEx = hsPos/SpeedOfLight
 hsTimeDiff = np.subtract(hsTime,hsTimeEx)
 hsAbsTimeDiff = np.absolute(hsTimeDiff)
