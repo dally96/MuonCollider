@@ -117,19 +117,15 @@ hsPr = np.sqrt(hsPx_Squared + hsPy_Squared)
 hsMom = np.sqrt(hsPx_Squared + hsPy_Squared + hsPz_Squared)
 
 hsTheta = np.arctan2(hsPr,hsP[3])
-'''for event in range(len(hsTheta)):
-    eventSize = len(hsTheta[event])
-    hsTheta[event] = np.add(hsTheta[event], np.random.normal(0.0,ThetaRes,eventSize))'''
-hsTheta = np.add(hsTheta, np.random.normal(0.0,ThetaRes,999))
+for event in hsTheta:
+    event = np.add(event, np.random.normal(0.0,ThetaRes,len(event)))
 hsThetaEx = np.arctan2(hsR,hsX[3])
 hsThetaDiff = np.subtract(hsTheta,hsThetaEx)
 hsAbsThetaDiff = np.absolute(hsThetaDiff)
 
 hsTime = noBIBTree["sttim"].array()
-'''for event in range(len(hsTime)):
-    eventSize = len(hsTime[event])
-    hsTime[event] = np.add(hsTime[event], np.random.normal(0.0,TimeRes,eventSize))'''
-hsTime = np.add(hsTime, np.random.normal(0.0,TimeRes,999))
+for event in hsTime:
+    event = np.add(event, np.random.normal(0.0,TimeRes,len(event)))
 hsTimeEx = hsPos/SpeedOfLight
 hsTimeDiff = np.subtract(hsTime,hsTimeEx)
 hsAbsTimeDiff = np.absolute(hsTimeDiff)
