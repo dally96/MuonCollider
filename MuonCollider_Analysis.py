@@ -11,8 +11,18 @@ from scipy import constants
 import math
 from math import pi
 
+from awkward.layout import ListOffsetArray64
+
+
 def convertNBIBToFrac(x):
     return x/2992.
+
+def smear(arr,sigma):
+    #Convert it to a 1D numpy array and perform smearing
+    numpy_arr = np.asarray(arr.layout.content)
+    smeared_arr = np.random.normal(numpy_arr, sigma)
+    #Convert it back to awkward form
+    return ak.Array(ListOffsetArray64(arr.layout.offsets, ak.Array(smeared_arr).layout))
     
 SpeedOfLight = constants.c/1e6 # mm/ns
 
@@ -50,12 +60,21 @@ tmpPz_Squared = np.square(tmpP[3])
 tmpPr = np.sqrt(tmpPx_Squared + tmpPy_Squared)
 tmpMom = np.sqrt(tmpPx_Squared + tmpPy_Squared + tmpPz_Squared)
 
+##Smearing arrays
+ThetaRes = 9#0.025 #rad
+TimeRes = 9#30e-3 #ns
+tmpNumEntries = tmpPos.size
+tmpThetaSmr = np.random.normal(0.0,ThetaRes,tmpNumEntries)
+tmpTimeSmr =  np.random.normal(0.0,TimeRes, tmpNumEntries)
+
 tmpTheta = np.arctan2(tmpPr,tmpP[3])
+tmpTheta = np.add(tmpTheta,tmpThetaSmr)
 tmpThetaEx = np.arctan2(tmpR,tmpX[3])
 tmpThetaDiff = np.subtract(tmpTheta,tmpThetaEx)
 tmpAbsThetaDiff = np.absolute(tmpThetaDiff)
 
 tmpTime = fullBIBTree["sttim"].array()[0]
+tmpTime = np.add(tmpTime,tmpTimeSmr)
 tmpTimeEx = tmpPos/SpeedOfLight
 tmpTimeDiff = np.subtract(tmpTime,tmpTimeEx)
 tmpAbsTimeDiff = np.absolute(tmpTimeDiff)
@@ -108,11 +127,13 @@ hsPr = np.sqrt(hsPx_Squared + hsPy_Squared)
 hsMom = np.sqrt(hsPx_Squared + hsPy_Squared + hsPz_Squared)
 
 hsTheta = np.arctan2(hsPr,hsP[3])
+hsTheta = smear(hsTheta,ThetaRes)
 hsThetaEx = np.arctan2(hsR,hsX[3])
 hsThetaDiff = np.subtract(hsTheta,hsThetaEx)
 hsAbsThetaDiff = np.absolute(hsThetaDiff)
 
 hsTime = noBIBTree["sttim"].array()
+hsTime = smear(hsTime,TimeRes)
 hsTimeEx = hsPos/SpeedOfLight
 hsTimeDiff = np.subtract(hsTime,hsTimeEx)
 hsAbsTimeDiff = np.absolute(hsTimeDiff)
@@ -182,4 +203,6 @@ h=plt.hist2d(tmpThetaDiff, tmpTimeDiff, bins=[30,30])
 plt.xlabel("θ-θ$_{ex}$ [rad]"); plt.ylabel("T-ToF [ns]")
 plt.scatter(SignalThetaDiff,SignalTimeDiff,s=[[5,]*len(SignalTimeDiff)], c=colors[6])
 fig.colorbar(h[3], ax = ax)
-plt.show()
+# plt.show()
+
+plt.savefig(f"test_{TimeRes}_{ThetaRes}.png")
