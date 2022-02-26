@@ -153,6 +153,7 @@ hsMomCut = np.where(hsMomCut == True)
 hsMomCut = np.array(hsMomCut)
 ######
 
+hsNumEntries = len(hsMomCut[0])
 
 hsThetaCut = []
 
@@ -194,11 +195,37 @@ SignalThetaDiff = []
 for i in hsMomCut[0]:
     SignalTimeDiff.append(hsTimeDiffComplete[i])
     SignalThetaDiff.append(hsThetaDiffComplete[i])
+SignalAbsTimeDiff = np.absolute(SignalTimeDiff)
+SignalAbsThetaDiff = np.absolute(SignalThetaDiff)
 
 ######
 
-fig,ax = plt.subplots()
+#Create efficiency values for ROC curve
 
+tmpEfficiencies = []
+hsEfficiencies  = []
+
+tDeltaValues=np.linspace(0.001,0.5,1000)
+for v in tDeltaValues: 
+    n = 0
+    for hit in tmpAbsTimeDiff:
+        if hit < v:
+            n+=1
+    tmpNumKeptEntries = n
+
+    n = 0
+    for hit in SignalAbsTimeDiff:
+        if hit < v:
+            n+=1    
+    hsNumKeptEntries = n
+    
+    tmpEfficiencies.append(1-tmpNumKeptEntries/tmpNumEntries)
+    hsEfficiencies.append(hsNumKeptEntries/hsNumEntries)
+    
+
+
+fig,ax = plt.subplots()
+'''
 h=plt.hist2d(tmpThetaDiff, tmpTimeDiff, bins=[30,30])
 plt.xlabel("θ-θ$_{ex}$ [rad]"); plt.ylabel("T-ToF [ns]")
 plt.scatter(SignalThetaDiff,SignalTimeDiff,s=[[5,]*len(SignalTimeDiff)], c=colors[6])
@@ -206,3 +233,9 @@ fig.colorbar(h[3], ax = ax)
 # plt.show()
 
 plt.savefig(f"test_{TimeRes}_{ThetaRes}.png")
+'''
+
+plt.scatter(hsEfficiencies,tmpEfficiencies)
+plt.xlabel("sig Efficiency"); plt.ylabel("1-(bkg Efficiency)")
+plt.xlim([0,1]); plt.ylim([0,1])
+plt.savefig(f"test_MuonROC_{TimeRes}_{ThetaRes}.png")
