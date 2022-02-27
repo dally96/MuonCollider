@@ -61,8 +61,8 @@ tmpPr = np.sqrt(tmpPx_Squared + tmpPy_Squared)
 tmpMom = np.sqrt(tmpPx_Squared + tmpPy_Squared + tmpPz_Squared)
 
 ##Smearing arrays
-ThetaRes = 9#0.025 #rad
-TimeRes = 9#30e-3 #ns
+ThetaRes = 0 #0.025 #rad
+TimeRes = 0 #30e-3 #ns
 tmpNumEntries = tmpPos.size
 tmpThetaSmr = np.random.normal(0.0,ThetaRes,tmpNumEntries)
 tmpTimeSmr =  np.random.normal(0.0,TimeRes, tmpNumEntries)
@@ -197,12 +197,87 @@ for i in hsMomCut[0]:
 
 ######
 
+cmap = plt.cm.viridis.copy()
+cmap.set_under(cmap(1e-5),1)
+
+######
+
 fig,ax = plt.subplots()
 
-h=plt.hist2d(tmpThetaDiff, tmpTimeDiff, bins=[30,30])
-plt.xlabel("θ-θ$_{ex}$ [rad]"); plt.ylabel("T-ToF [ns]")
-plt.scatter(SignalThetaDiff,SignalTimeDiff,s=[[5,]*len(SignalTimeDiff)], c=colors[6])
-fig.colorbar(h[3], ax = ax)
-# plt.show()
+h=plt.hist2d(tmpThetaDiff, tmpTimeDiff, bins=[100,100], cmap=cmap, rasterized=True)
+plt.xlabel(r"$\theta_{\Delta}$ [rad]"); plt.ylabel(r"$t_{\Delta}$ [ns]")
+plt.scatter(SignalThetaDiff,SignalTimeDiff, s=8, lw=0.5, ec="k", c=colors[6],rasterized=True)
+fig.colorbar(h[3], ax = ax, label="Particle Interactions")
 
-plt.savefig(f"test_{TimeRes}_{ThetaRes}.png")
+plt.savefig(f"thetaDelta_tDelta_{TimeRes}_{ThetaRes}.pdf")
+
+######
+
+fig,ax = plt.subplots()
+
+h=plt.hist2d(tmpTime, tmpTimeEx, bins=[100,100], range=[[-0.1, 0.7], [-0.1, 0.7]], cmap=cmap, rasterized=True)
+plt.xlabel(r"$t$ [ns]"); plt.ylabel(r"$t_{exp}$ [ns]")
+plt.scatter(hsTime[0],hsTimeEx[0], s=8, lw=0.5, ec="k", c=colors[6],rasterized=True)
+fig.colorbar(h[3], ax = ax, label="Particle Interactions")
+plt.xlim([-0.1,0.7]); plt.ylim([-0.1,0.7])
+plt.savefig(f"tEx_t_{TimeRes}_{ThetaRes}.pdf")
+
+
+######
+
+fig,ax = plt.subplots()
+
+h=plt.hist2d(tmpTheta, tmpThetaEx, bins=[100,100], range=[[0,3.19], [0,3.19]], cmap=cmap, rasterized=True)
+plt.xlabel(r"$\theta$ [rad]"); plt.ylabel(r"$\theta_{exp}$ [rad]")
+plt.scatter(hsTheta[0],hsThetaEx[0], s=8, lw=0.5, ec="k", c=colors[6],rasterized=True)
+fig.colorbar(h[3], ax = ax, label="Particle Interactions")
+
+plt.savefig(f"thetaEx_theta_{TimeRes}_{ThetaRes}.pdf")
+
+
+######
+
+fig,ax = plt.subplots()
+
+h=plt.hist2d(tmpX[3], tmpTheta, bins=[100,100], cmap=cmap, rasterized=True)
+plt.xlabel(r"$z$ [mm]"); plt.ylabel(r"$\theta$ [rad]")
+plt.scatter(hsX[3][0],hsTheta[0], s=8, lw=0.5, ec="k", c=colors[6],rasterized=True)
+fig.colorbar(h[3], ax = ax, label="Particle Interactions")
+
+plt.savefig(f"z_theta_{TimeRes}_{ThetaRes}.pdf")
+
+######
+
+fig,ax = plt.subplots()
+
+h=plt.hist2d(tmpX[3], tmpThetaDiff, bins=[100,100], cmap=cmap, rasterized=True)
+plt.xlabel(r"$z$ [mm]"); plt.ylabel(r"$\theta_{\Delta}$ [rad]")
+plt.scatter(hsX[3][0],hsThetaDiff[0], s=8, lw=0.5, ec="k", c=colors[6],rasterized=True)
+fig.colorbar(h[3], ax = ax, label="Particle Interactions")
+
+plt.savefig(f"z_thetaDelta_{TimeRes}_{ThetaRes}.pdf")
+
+#####
+
+fig,ax = plt.subplots()
+
+h=plt.hist2d(tmpX[3], tmpTime, bins=[100,100], cmap=cmap, rasterized=True)
+plt.xlabel(r"$z$ [mm]"); plt.ylabel(r"$t$ [ns]")
+plt.scatter(hsX[3][0],hsTime[0], s=8, lw=0.5, ec="k", c=colors[6],rasterized=True)
+fig.colorbar(h[3], ax = ax, label="Particle Interactions")
+
+plt.savefig(f"z_t_{TimeRes}_{ThetaRes}.pdf")
+
+
+#####
+
+fig,ax = plt.subplots()
+
+h=plt.hist2d(tmpX[3], tmpTimeDiff, bins=[100,100], cmap=cmap, rasterized=True)
+plt.xlabel(r"$z$ [mm]"); plt.ylabel(r"$t_{\Delta}$ [ns]")
+plt.scatter(hsX[3][0],hsTimeDiff[0], s=8, lw=0.5, ec="k", c=colors[6],rasterized=True)
+fig.colorbar(h[3], ax = ax, label="Particle Interactions")
+
+plt.savefig(f"z_tDelta_{TimeRes}_{ThetaRes}.pdf")
+
+
