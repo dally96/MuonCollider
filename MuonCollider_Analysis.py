@@ -31,7 +31,7 @@ mpl.rcParams['patch.linewidth']       = 0.5
 mpl.rcParams['savefig.dpi']           = 300
 mpl.rcParams['agg.path.chunksize'] = 10000
 
-colors  = ["#A4036F","#048ba8","#16db93","#efea5a","#f29e4c","#000000","#ffffff"]
+colors  = ["#A4036F","#048ba8","#16db93","#efea5a","#f29e4c","#f96e21","#ff0000","#000000","#ffffff", ]
 markers = ["o","s","D","^","v","<",">","*","X","p"]
 
 
@@ -62,22 +62,26 @@ tmpMom = np.sqrt(tmpPx_Squared + tmpPy_Squared + tmpPz_Squared)
 
 ##Smearing arrays
 ThetaRes = 9#0.025 #rad
-TimeRes = 9#30e-3 #ns
+StTimeRes = 30e-3 #ns, st-standard
+TimeResScan = [StTimeRes/5,StTimeRes,StTimeRes*2,StTimeRes*5,StTimeRes*10,StTimeRes*50,StTimeRes*100]
 tmpNumEntries = tmpPos.size
-tmpThetaSmr = np.random.normal(0.0,ThetaRes,tmpNumEntries)
-tmpTimeSmr =  np.random.normal(0.0,TimeRes, tmpNumEntries)
+tmpAbsTimeDiffScan = []
+for TimeRes in TimeResScan:
+    tmpThetaSmr = np.random.normal(0.0,ThetaRes,tmpNumEntries)
+    tmpTimeSmr =  np.random.normal(0.0,TimeRes, tmpNumEntries)
 
-tmpTheta = np.arctan2(tmpPr,tmpP[3])
-tmpTheta = np.add(tmpTheta,tmpThetaSmr)
-tmpThetaEx = np.arctan2(tmpR,tmpX[3])
-tmpThetaDiff = np.subtract(tmpTheta,tmpThetaEx)
-tmpAbsThetaDiff = np.absolute(tmpThetaDiff)
+    tmpTheta = np.arctan2(tmpPr,tmpP[3])
+    tmpTheta = np.add(tmpTheta,tmpThetaSmr)
+    tmpThetaEx = np.arctan2(tmpR,tmpX[3])
+    tmpThetaDiff = np.subtract(tmpTheta,tmpThetaEx)
+    tmpAbsThetaDiff = np.absolute(tmpThetaDiff)
 
-tmpTime = fullBIBTree["sttim"].array()[0]
-tmpTime = np.add(tmpTime,tmpTimeSmr)
-tmpTimeEx = tmpPos/SpeedOfLight
-tmpTimeDiff = np.subtract(tmpTime,tmpTimeEx)
-tmpAbsTimeDiff = np.absolute(tmpTimeDiff)
+    tmpTime = fullBIBTree["sttim"].array()[0]
+    tmpTime = np.add(tmpTime,tmpTimeSmr)
+    tmpTimeEx = tmpPos/SpeedOfLight
+    tmpTimeDiff = np.subtract(tmpTime,tmpTimeEx)
+    tmpAbsTimeDiff = np.absolute(tmpTimeDiff)
+    tmpAbsTimeDiffScan.append(tmpAbsTimeDiff)
 
 ### The next chunks of code are to find at which index the if condition is true.
 tmpThetaCut = []
@@ -132,11 +136,14 @@ hsThetaEx = np.arctan2(hsR,hsX[3])
 hsThetaDiff = np.subtract(hsTheta,hsThetaEx)
 hsAbsThetaDiff = np.absolute(hsThetaDiff)
 
-hsTime = noBIBTree["sttim"].array()
-hsTime = smear(hsTime,TimeRes)
-hsTimeEx = hsPos/SpeedOfLight
-hsTimeDiff = np.subtract(hsTime,hsTimeEx)
-hsAbsTimeDiff = np.absolute(hsTimeDiff)
+hsTimeDiffScan = []
+for TimeRes in TimeResScan:
+    hsTime = noBIBTree["sttim"].array()
+    hsTime = smear(hsTime,TimeRes)
+    hsTimeEx = hsPos/SpeedOfLight
+    hsTimeDiff = np.subtract(hsTime,hsTimeEx)
+    hsAbsTimeDiff = np.absolute(hsTimeDiff)
+    hsTimeDiffScan.append(hsTimeDiff)
 
 ###### This whole chunk of code is to unpack all 999 events into 1 single tuple and then find at what index the momentum is greater than 1 GeV.
 hsMomCut = []
@@ -185,42 +192,49 @@ hsTimeMomCut = np.intersect1d(hsTimeCut, hsMomCut)
 hsThetaMomCut = np.intersect1d(hsThetaCut, hsMomCut)
 hsCompleteCut = np.intersect1d(hsTimeMomCut, hsThetaMomCut)
 
-###### Again this unpacks the 999 tuples into one tuple for our needs
-hsTimeDiffComplete = [y for x in hsTimeDiff for y in x]
-hsThetaDiffComplete = [y for x in hsThetaDiff for y in x]
-######
-SignalTimeDiff = []
-SignalThetaDiff = []
+hsAbsTimeDiffScan = []
+for hsTimeDiff in hsTimeDiffScan:
+    ###### Again this unpacks the 999 tuples into one tuple for our needs
+    hsTimeDiffComplete = [y for x in hsTimeDiff for y in x]
+    hsThetaDiffComplete = [y for x in hsThetaDiff for y in x]
+    ######
+    SignalTimeDiff = []
+    SignalThetaDiff = []
 
-for i in hsMomCut[0]:
-    SignalTimeDiff.append(hsTimeDiffComplete[i])
-    SignalThetaDiff.append(hsThetaDiffComplete[i])
-SignalAbsTimeDiff = np.absolute(SignalTimeDiff)
-SignalAbsThetaDiff = np.absolute(SignalThetaDiff)
-
-######
+    for i in hsMomCut[0]:
+        SignalTimeDiff.append(hsTimeDiffComplete[i])
+        SignalThetaDiff.append(hsThetaDiffComplete[i])
+    SignalAbsTimeDiff = np.absolute(SignalTimeDiff)
+    SignalAbsThetaDiff = np.absolute(SignalThetaDiff)
+    hsAbsTimeDiffScan.append(SignalAbsTimeDiff)
+    ######
+    
 
 #Create efficiency values for ROC curve
 
 tmpEfficiencies = []
 hsEfficiencies  = []
 
-tDeltaValues=np.linspace(0.001,0.5,1000)
-for v in tDeltaValues: 
-    n = 0
-    for hit in tmpAbsTimeDiff:
-        if hit < v:
-            n+=1
-    tmpNumKeptEntries = n
+tDeltaValues=np.linspace(0.001,5,10000)
+for n, curve in enumerate(hsAbsTimeDiffScan):
+    tmpEfficiency = []
+    hsEfficiency  = []
+    print("Building ROC Curve "+str(n+1)+"/7")
+    for v in tDeltaValues: 
+        
+        tmpDelTimeCut = np.where(tmpAbsTimeDiffScan[n] < v)
+        tmpNumKeptEntries = len(tmpDelTimeCut[0])
 
-    n = 0
-    for hit in SignalAbsTimeDiff:
-        if hit < v:
-            n+=1    
-    hsNumKeptEntries = n
+        hsDelTimeCut = np.where(hsAbsTimeDiffScan[n] < v)
+        hsNumKeptEntries = len(hsDelTimeCut[0])
+
     
-    tmpEfficiencies.append(1-tmpNumKeptEntries/tmpNumEntries)
-    hsEfficiencies.append(hsNumKeptEntries/hsNumEntries)
+        tmpEfficiency.append(1-tmpNumKeptEntries/tmpNumEntries)
+        hsEfficiency.append(hsNumKeptEntries/hsNumEntries)
+       
+    
+    tmpEfficiencies.append(tmpEfficiency)
+    hsEfficiencies.append(hsEfficiency)
     
 
 
@@ -235,7 +249,10 @@ fig.colorbar(h[3], ax = ax)
 plt.savefig(f"test_{TimeRes}_{ThetaRes}.png")
 '''
 
-plt.scatter(hsEfficiencies,tmpEfficiencies)
+for n, curve in enumerate(hsEfficiencies):
+    hsEfficiency = np.array(hsEfficiencies[n])
+    tmpEfficiency = np.array(tmpEfficiencies[n])
+    plt.scatter(hsEfficiencies,tmpEfficiencies,c=colors[n])
 plt.xlabel("sig Efficiency"); plt.ylabel("1-(bkg Efficiency)")
 plt.xlim([0,1]); plt.ylim([0,1])
-plt.savefig(f"test_MuonROC_{TimeRes}_{ThetaRes}.png")
+plt.savefig(f"test_MuonROC_TimeScan_{TimeResScan[0]}-{TimeResScan[6]}.png")
