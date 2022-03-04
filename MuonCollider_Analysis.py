@@ -10,6 +10,7 @@ import sys, os
 from scipy import constants
 import math
 from math import pi
+import pickle
 
 from awkward.layout import ListOffsetArray64
 
@@ -31,7 +32,7 @@ mpl.rcParams['patch.linewidth']       = 0.5
 mpl.rcParams['savefig.dpi']           = 300
 mpl.rcParams['agg.path.chunksize'] = 10000
 
-colors  = ["#A4036F","#048ba8","#16db93","#efea5a","#f29e4c","#f96e21","#ff0000","#000000","#ffffff", ]
+colors  = ["#A4036F","#5213ba","#048ba8","#16db93","#16f421","#efea5a","#f29e4c","#f96e21","#ff1010","#964b00","#000000","#ffffff"]
 markers = ["o","s","D","^","v","<",">","*","X","p"]
 
 
@@ -61,11 +62,13 @@ tmpPr = np.sqrt(tmpPx_Squared + tmpPy_Squared)
 tmpMom = np.sqrt(tmpPx_Squared + tmpPy_Squared + tmpPz_Squared)
 
 ##Smearing arrays
-ThetaRes = 9#0.025 #rad
-StTimeRes = 30e-3 #ns, st-standard
-TimeResScan = [StTimeRes/5,StTimeRes,StTimeRes*2,StTimeRes*5,StTimeRes*10,StTimeRes*50,StTimeRes*100]
+ThetaRes = 25e-3 #rad, #Smearing Values: 10 mrad, 25 mrad 50 mrad
+StTimeRes = 30e-3 #ns, #Smearing Values: 20 ps, 30ps, 50ps #Also check both smearings at 0.
+TimeResScan = [StTimeRes]#/5,StTimeRes,StTimeRes*2,StTimeRes*5,StTimeRes*10,StTimeRes*50,StTimeRes*100]
 tmpNumEntries = tmpPos.size
-tmpAbsTimeDiffScan = []
+
+tmpAbsThetaDiffScan = []
+tmpAbsTimeDiffScan =  []
 for TimeRes in TimeResScan:
     tmpThetaSmr = np.random.normal(0.0,ThetaRes,tmpNumEntries)
     tmpTimeSmr =  np.random.normal(0.0,TimeRes, tmpNumEntries)
@@ -75,6 +78,7 @@ for TimeRes in TimeResScan:
     tmpThetaEx = np.arctan2(tmpR,tmpX[3])
     tmpThetaDiff = np.subtract(tmpTheta,tmpThetaEx)
     tmpAbsThetaDiff = np.absolute(tmpThetaDiff)
+    tmpAbsThetaDiffScan.append(tmpAbsThetaDiff)
 
     tmpTime = fullBIBTree["sttim"].array()[0]
     tmpTime = np.add(tmpTime,tmpTimeSmr)
@@ -130,14 +134,16 @@ hsPz_Squared = np.square(hsP[3])
 hsPr = np.sqrt(hsPx_Squared + hsPy_Squared)
 hsMom = np.sqrt(hsPx_Squared + hsPy_Squared + hsPz_Squared)
 
-hsTheta = np.arctan2(hsPr,hsP[3])
-hsTheta = smear(hsTheta,ThetaRes)
-hsThetaEx = np.arctan2(hsR,hsX[3])
-hsThetaDiff = np.subtract(hsTheta,hsThetaEx)
-hsAbsThetaDiff = np.absolute(hsThetaDiff)
-
-hsTimeDiffScan = []
+hsThetaDiffScan = []
+hsTimeDiffScan =  []
 for TimeRes in TimeResScan:
+    hsTheta = np.arctan2(hsPr,hsP[3])
+    hsTheta = smear(hsTheta,ThetaRes)
+    hsThetaEx = np.arctan2(hsR,hsX[3])
+    hsThetaDiff = np.subtract(hsTheta,hsThetaEx)
+    hsAbsThetaDiff = np.absolute(hsThetaDiff)
+    hsThetaDiffScan.append(hsThetaDiff)
+
     hsTime = noBIBTree["sttim"].array()
     hsTime = smear(hsTime,TimeRes)
     hsTimeEx = hsPos/SpeedOfLight
@@ -154,13 +160,16 @@ for event in range(len(hsMom)):
             hsMomCut.append(True)
         else:
             hsMomCut.append(False)
-            
+
+
 hsMomCut = np.array(hsMomCut)
 hsMomCut = np.where(hsMomCut == True)
 hsMomCut = np.array(hsMomCut)
+
+
 ######
 
-hsNumEntries = len(hsMomCut[0])
+hsNumEntries = len(hsMomCut[0]) #Number of sig hits
 
 hsThetaCut = []
 
@@ -192,7 +201,8 @@ hsTimeMomCut = np.intersect1d(hsTimeCut, hsMomCut)
 hsThetaMomCut = np.intersect1d(hsThetaCut, hsMomCut)
 hsCompleteCut = np.intersect1d(hsTimeMomCut, hsThetaMomCut)
 
-hsAbsTimeDiffScan = []
+hsAbsThetaDiffScan = []
+hsAbsTimeDiffScan =  []
 for hsTimeDiff in hsTimeDiffScan:
     ###### Again this unpacks the 999 tuples into one tuple for our needs
     hsTimeDiffComplete = [y for x in hsTimeDiff for y in x]
@@ -206,53 +216,123 @@ for hsTimeDiff in hsTimeDiffScan:
         SignalThetaDiff.append(hsThetaDiffComplete[i])
     SignalAbsTimeDiff = np.absolute(SignalTimeDiff)
     SignalAbsThetaDiff = np.absolute(SignalThetaDiff)
-    hsAbsTimeDiffScan.append(SignalAbsTimeDiff)
     ######
-    
+    hsAbsThetaDiffScan.append(SignalAbsThetaDiff)
+    hsAbsTimeDiffScan.append(SignalAbsTimeDiff)
 
-#Create efficiency values for ROC curve
+##Create ROC Ribbon
 
-tmpEfficiencies = []
-hsEfficiencies  = []
+tDeltaValues = np.linspace(0.03,0.3,10)
+thetaDeltaValues = np.linspace(0.001,2.8,1000)
 
-tDeltaValues=np.linspace(0.001,5,10000)
-for n, curve in enumerate(hsAbsTimeDiffScan):
-    tmpEfficiency = []
-    hsEfficiency  = []
-    print("Building ROC Curve "+str(n+1)+"/7")
-    for v in tDeltaValues: 
-        
-        tmpDelTimeCut = np.where(tmpAbsTimeDiffScan[n] < v)
-        tmpNumKeptEntries = len(tmpDelTimeCut[0])
-
-        hsDelTimeCut = np.where(hsAbsTimeDiffScan[n] < v)
-        hsNumKeptEntries = len(hsDelTimeCut[0])
-
-    
-        tmpEfficiency.append(1-tmpNumKeptEntries/tmpNumEntries)
-        hsEfficiency.append(hsNumKeptEntries/hsNumEntries)
-       
-    
-    tmpEfficiencies.append(tmpEfficiency)
-    hsEfficiencies.append(hsEfficiency)
-    
-
+#Sort DeltaValues arrays in descending order
+tDeltaValues = np.sort(tDeltaValues)[::-1] 
+thetaDeltaValues = np.sort(thetaDeltaValues)[::-1]
 
 fig,ax = plt.subplots()
+
+for n, curve in enumerate(hsAbsTimeDiffScan):
+    #EffScoreMin = 1 # Attempt to keep track of best efficiency. So far only makes loop much longer, need more sophisticated methods
+    print("Building ROC Ribbon "+str(n+1)+"/"+str(len(hsAbsTimeDiffScan)))
+    tmpAbsTimeDiff = tmpAbsTimeDiffScan[n]
+    hsAbsTimeDiff = hsAbsTimeDiffScan[n]
+
+    i = 0
+
+    tmpEffDict, hsEffDict = {}, {}
+    for tVal in tDeltaValues:
+
+        j = 0
+
+        tmpAbsThetaDiff = tmpAbsThetaDiffScan[n]
+        hsAbsThetaDiff = hsAbsThetaDiffScan[n]
+        tmpDelTimeCut = np.where(tmpAbsTimeDiff < tVal)
+        hsDelTimeCut = np.where(hsAbsTimeDiff < tVal)
+
+        tmpEfficiencyVals = []
+        hsEfficiencyVals  = []
+
+        for thetaVal in thetaDeltaValues: 
+
+            tmpDelThetaCut = np.where(tmpAbsThetaDiff < thetaVal)
+            hsDelThetaCut = np.where(hsAbsThetaDiff < thetaVal)
+
+            tmpNumKeptEntries = len(np.intersect1d(tmpDelTimeCut,tmpDelThetaCut))
+            hsNumKeptEntries = len(np.intersect1d(hsDelTimeCut,hsDelThetaCut))
+
+
+            #Next chunks create new arrays with only hits which passed previous cuts, making each iterration of inner loop shorter. This is why values were sorted in descending order, otherwise nearly all data would be lost on first iteration
+            newtmpAbsThetaDiff = []
+            for entry in tmpDelThetaCut[0]:
+                newtmpAbsThetaDiff.append(tmpAbsThetaDiff[entry])
+
+
+            newhsAbsThetaDiff = []
+            for entry in hsDelThetaCut[0]:
+                newhsAbsThetaDiff.append(hsAbsThetaDiff[entry])
+
+            tmpDelThetaCut = newtmpAbsThetaDiff
+            hsDelThetaCut = newhsAbsThetaDiff
+            #####
+
+            tmpEfficiencyVals.append(tmpNumKeptEntries/tmpNumEntries)
+            hsEfficiencyVals.append(hsNumKeptEntries/hsNumEntries)
+
+            #print("   "+str(hsEfficiencyVals[j])+", "+str(tmpEfficiencyVals[j])) #Not a necessary print statement, but after working on the loop shortener for so long, it was satisfying to watch it work
+            '''
+            EffScore = sqrt((1-tmpEfficiencyVal)**2+(1-hsEfficiencyVal)**2)
+            if EffScore < EffScoreMin:
+                EffScoreMin = EffScore
+                EffScoreIndex = i
+            '''
+
+            j+=1
+
+        tmpEfficiency = np.array(tmpEfficiencyVals)
+        hsEfficiency = np.array(hsEfficiencyVals)
+
+        tmpEffDict[tVal] = tmpEfficiencyVals
+        hsEffDict[tVal] =  hsEfficiencyVals
+
+        roundtVal = round(tVal,2)
+        plotlabel = "Del_t Cut: "+str(roundtVal)
+        plt.plot(hsEfficiency,tmpEfficiency,'-', c=colors[i], label=plotlabel) 
+
+        #Same as with Inner Loop
+        newtmpAbsTimeDiff = []
+        for entry in tmpDelTimeCut[0]:
+            newtmpAbsTimeDiff.append(tmpAbsTimeDiff[entry])
+
+        newhsAbsTimeDiff = []
+        for entry in hsDelTimeCut[0]:
+            newhsAbsTimeDiff.append(hsAbsTimeDiff[entry])   
+
+        tmpDelTimeCut = newtmpAbsTimeDiff
+        hsDelTimeCut = newhsAbsTimeDiff
+        #####
+
+        i+=1
+
+pickleoutput = [hsEffDict,tmpEffDict]
+with open('EffDict.pickle','wb') as f:
+    pickle.dump(pickleoutput,f)
+
+    
+
 '''
 h=plt.hist2d(tmpThetaDiff, tmpTimeDiff, bins=[30,30])
-plt.xlabel("θ-θ$_{ex}$ [rad]"); plt.ylabel("T-ToF [ns]")
+plt.xlabel("T-ToF [ns]"); plt.ylabel("T-ToF [ns]") #"θ-θ$_{ex}$ [rad]"
 plt.scatter(SignalThetaDiff,SignalTimeDiff,s=[[5,]*len(SignalTimeDiff)], c=colors[6])
 fig.colorbar(h[3], ax = ax)
-# plt.show()
+plt.show()
 
-plt.savefig(f"test_{TimeRes}_{ThetaRes}.png")
+plt.savefig(f"1DTest_{TimeRes}.png")
 '''
 
-for n, curve in enumerate(hsEfficiencies):
-    hsEfficiency = np.array(hsEfficiencies[n])
-    tmpEfficiency = np.array(tmpEfficiencies[n])
-    plt.scatter(hsEfficiencies,tmpEfficiencies,c=colors[n])
-plt.xlabel("sig Efficiency"); plt.ylabel("1-(bkg Efficiency)")
-plt.xlim([0,1]); plt.ylim([0,1])
-plt.savefig(f"test_MuonROC_TimeScan_{TimeResScan[0]}-{TimeResScan[6]}.png")
+plt.xlabel("Signal Efficiency"); plt.ylabel("bkg Efficiency")
+plt.yscale('log')
+plt.xlim([0,1])
+plt.legend(loc=4, ncol=2, fontsize='small')
+plt.savefig(f"test_MuonROC_Ribbon.png")
+#print("Best Efficiency Score: "+str(EffScoreMin))
+#print("Index: "+str(EffScoreIndex))
