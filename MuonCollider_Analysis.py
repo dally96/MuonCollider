@@ -253,8 +253,8 @@ for n, ribbon in enumerate(list(hsAbsTimeDiffScan.values())):
     TimeRes =  float(str(SmearingParams).split("_")[0])
     ThetaRes = float(str(SmearingParams).split("_")[1])
 
-    tDeltaValues = np.linspace(0.5*TimeRes,5*TimeRes,40)
-    thetaDeltaValues = np.linspace(0.5*ThetaRes,5*ThetaRes,20)
+    tDeltaValues = np.linspace(0.5*TimeRes,20*TimeRes,80)
+    thetaDeltaValues = np.linspace(0.5*ThetaRes,20*ThetaRes,40)
 
     #Sort DeltaValues arrays in descending order
     tDeltaValues = np.sort(tDeltaValues)[::-1] 
@@ -319,8 +319,8 @@ for n, ribbon in enumerate(list(hsAbsTimeDiffScan.values())):
 
         roundtVal = round(tVal,3)
         axs[n].semilogy(hsEfficiency,tmpEfficiency,'-', c=colors[n])#, label=plotlabel)
-        axs[n].xlim([0,1]); axs[n].ylim([10e-3,2*10e-1])
-        PlotTitle = str(TimeRes)+' [ns], '+str(ThetaRes)+' [rad]'
+        #axs[n].xlim([0,1]); axs[n].ylim([10e-3,2*10e-1])
+        PlotTitle = str(TimeRes)+'[ns]-'+str(ThetaRes)+'[rad]'
         axs[n].set_title(PlotTitle)
 
         #Same as with Inner Loop
