@@ -23,7 +23,7 @@ def smear(arr,sigma):
     smeared_arr = np.random.normal(numpy_arr, sigma)
     #Convert it back to awkward form
     return ak.Array(ListOffsetArray64(arr.layout.offsets, ak.Array(smeared_arr).layout))
-    
+
 SpeedOfLight = constants.c/1e6 # mm/ns
 
 mpl.rcParams['patch.force_edgecolor'] = True
@@ -35,13 +35,18 @@ colors  = ["#A4036F","#048ba8","#16db93","#efea5a","#f29e4c","#000000","#ffffff"
 markers = ["o","s","D","^","v","<",">","*","X","p"]
 
 
+
 # hard scatter only (0 BIB)
-noBIBFile = uproot.open(f"lctuple_999.root")
+# noBIBFile = uproot.open(f"lctuple_999.root")
+noBIBFile = uproot.open(f"fromLuke052622/JetHistograms_All.root")
 noBIBTree = noBIBFile["LCTupleDefault"]
 
 # BIB only
 fullBIBFile = uproot.open("lctuple_2992_trackerSimHits.root")
+# fullBIBFile = uproot.open("fromLuke052622/JetHistograms_All.root")
 fullBIBTree =  fullBIBFile["MyLCTuple"]
+# fullBIBTree =  fullBIBFile["LCTupleDefault"]
+
 
 # w/ full BIB
 tmpP = np.array([fullBIBTree["stedp"].array()[0], fullBIBTree["stmox"].array()[0], fullBIBTree["stmoy"].array()[0], fullBIBTree["stmoz"].array()[0]])
@@ -61,8 +66,10 @@ tmpPr = np.sqrt(tmpPx_Squared + tmpPy_Squared)
 tmpMom = np.sqrt(tmpPx_Squared + tmpPy_Squared + tmpPz_Squared)
 
 ##Smearing arrays
-ThetaRes = 0 #0.025 #rad
-TimeRes = 0 #30e-3 #ns
+# ThetaRes = 0.01 #0.025 #rad
+# TimeRes = 20e-3 #30e-3 #ns
+ThetaRes = 0
+TimeRes = 0
 tmpNumEntries = tmpPos.size
 tmpThetaSmr = np.random.normal(0.0,ThetaRes,tmpNumEntries)
 tmpTimeSmr =  np.random.normal(0.0,TimeRes, tmpNumEntries)
@@ -144,10 +151,11 @@ hsMomCut = []
 for event in range(len(hsMom)):
     for hit in hsMom[event]:
         if hit > 1:
+        # if hit > 0:
             hsMomCut.append(True)
         else:
             hsMomCut.append(False)
-            
+
 hsMomCut = np.array(hsMomCut)
 hsMomCut = np.where(hsMomCut == True)
 hsMomCut = np.array(hsMomCut)
@@ -190,24 +198,79 @@ hsThetaDiffComplete = [y for x in hsThetaDiff for y in x]
 ######
 SignalTimeDiff = []
 SignalThetaDiff = []
+SignalAbsTimeDiff = []
+SignalAbsThetaDiff = []
+
 
 for i in hsMomCut[0]:
     SignalTimeDiff.append(hsTimeDiffComplete[i])
     SignalThetaDiff.append(hsThetaDiffComplete[i])
+    SignalAbsTimeDiff.append( abs(hsTimeDiffComplete[i] ))
+    SignalAbsThetaDiff.append(abs(hsThetaDiffComplete[i]))
+
+for i in range(20):
+    print(SignalTimeDiff[i], hsTimeDiffComplete[i])
+
+print(len(SignalTimeDiff), len(hsTimeDiffComplete) )
 
 ######
 
 cmap = plt.cm.viridis.copy()
 cmap.set_under(cmap(1e-5),1)
+cmap.set_bad(cmap(1e-5),1)
+######
+
+def commonStuff(ax,doText=True,extraText=""):
+    if doText:
+        ax.text(0.05, 0.93, r"$\sqrt{s}=1.5$ TeV Circular Muon Collider",
+                verticalalignment='bottom', horizontalalignment='left',
+                transform=ax.transAxes, fontsize=11, c="w")
+        ax.text(0.05, 0.88, "MARS15 BIB, CLIC_o3_v14_mod4, Vertex Detector",
+                verticalalignment='bottom', horizontalalignment='left',
+                transform=ax.transAxes, fontsize=11, c="w")
+        # ax.text(0.05, 0.83, "Vertex Detector",
+        #         verticalalignment='bottom', horizontalalignment='left',
+        #         transform=ax.transAxes, fontsize=11, c="w")
+        if extraText:
+            ax.text(0.05, 0.87, extraText,
+                    verticalalignment='top', horizontalalignment='left',
+                    transform=ax.transAxes, fontsize=11, c="w")
+    plt.tight_layout()
+    return
+
+
+######
+
+
 
 ######
 
 fig,ax = plt.subplots()
 
-h=plt.hist2d(tmpThetaDiff, tmpTimeDiff, bins=[100,100], cmap=cmap, rasterized=True)
+h=plt.hist2d(tmpX[3], tmpTheta, bins=[200,200], cmap=cmap, rasterized=True)
+plt.xlabel(r"$z$ [mm]"); plt.ylabel(r"$\theta$ [rad]")
+plt.scatter(ak.flatten(hsX[3]),ak.flatten(hsTheta), s=2, lw=0.0, ec="k", c="r", alpha=0.02,rasterized=True)
+fig.colorbar(h[3], ax = ax, label="BIB Particle Interactions")
+commonStuff(ax,False)
+
+plt.savefig(f"z_theta_{TimeRes}_{ThetaRes}.pdf")
+
+
+
+
+
+fig,ax = plt.subplots()
+
+h=plt.hist2d(tmpThetaDiff, tmpTimeDiff, bins=[200,200], cmap=cmap, rasterized=True)
 plt.xlabel(r"$\theta_{\Delta}$ [rad]"); plt.ylabel(r"$t_{\Delta}$ [ns]")
-plt.scatter(SignalThetaDiff,SignalTimeDiff, s=8, lw=0.5, ec="k", c=colors[6],rasterized=True)
-fig.colorbar(h[3], ax = ax, label="Particle Interactions")
+plt.scatter(SignalThetaDiff,SignalTimeDiff, s=2, lw=0.0, ec="k", c="r", alpha=0.02,rasterized=True)
+fig.colorbar(h[3], ax = ax, label="BIB Particle Interactions")
+commonStuff(ax)
+
+ax.text(0.5,0.05, "Collision Product Interactions", rotation=0,
+        verticalalignment='center', horizontalalignment='left',
+        multialignment="right", transform=ax.transAxes, fontsize=10, c="w")
+plt.plot([0.47],[0.054],"s",c="r",ms=6,mew=0.5,mec="w",alpha=0.8,transform=ax.transAxes)
 
 plt.savefig(f"thetaDelta_tDelta_{TimeRes}_{ThetaRes}.pdf")
 
@@ -215,11 +278,30 @@ plt.savefig(f"thetaDelta_tDelta_{TimeRes}_{ThetaRes}.pdf")
 
 fig,ax = plt.subplots()
 
-h=plt.hist2d(tmpTime, tmpTimeEx, bins=[100,100], range=[[-0.1, 0.7], [-0.1, 0.7]], cmap=cmap, rasterized=True)
+h=plt.hist2d(tmpTime, tmpTimeEx, bins=[200,200], range=[[-0.1, 0.7], [-0.1, 0.7]], cmap=cmap, rasterized=True)
 plt.xlabel(r"$t$ [ns]"); plt.ylabel(r"$t_{exp}$ [ns]")
-plt.scatter(hsTime[0],hsTimeEx[0], s=8, lw=0.5, ec="k", c=colors[6],rasterized=True)
-fig.colorbar(h[3], ax = ax, label="Particle Interactions")
+plt.scatter(ak.flatten(hsTime),ak.flatten(hsTimeEx), s=2, lw=0.0, ec="k", c="r", alpha=0.02,rasterized=True)
+fig.colorbar(h[3], ax = ax, label="BIB Particle Interactions")
 plt.xlim([-0.1,0.7]); plt.ylim([-0.1,0.7])
+commonStuff(ax)
+
+
+ax.text(0.5,0.05, "Collision Product Interactions", rotation=0,
+        verticalalignment='center', horizontalalignment='left',
+        multialignment="right", transform=ax.transAxes, fontsize=10, c="w")
+plt.plot([0.47],[0.054],"s",c="r",ms=6,mew=0.5,mec="w",alpha=1.0,transform=ax.transAxes)
+
+# ax.annotate("Collision Product Interactions",
+#             xy=(0.15,0.15), xycoords='data',
+#             xytext=(70, -40), textcoords='offset points', fontsize=10, c="r",
+#             arrowprops=dict(arrowstyle="simple,head_length=1,head_width=1,tail_width=0.3",
+#                             connectionstyle="angle3,angleA=0,angleB=150",
+#                             color="r",
+#                             ec="w",
+#                             ),
+#             horizontalalignment='left', verticalalignment='top',
+#             )
+
 plt.savefig(f"tEx_t_{TimeRes}_{ThetaRes}.pdf")
 
 
@@ -227,33 +309,79 @@ plt.savefig(f"tEx_t_{TimeRes}_{ThetaRes}.pdf")
 
 fig,ax = plt.subplots()
 
-h=plt.hist2d(tmpTheta, tmpThetaEx, bins=[100,100], range=[[0,3.19], [0,3.19]], cmap=cmap, rasterized=True)
+h=plt.hist2d(tmpTheta, tmpThetaEx, bins=[200,200], range=[[0,3.19], [0,3.19]], cmap=cmap, rasterized=True)
 plt.xlabel(r"$\theta$ [rad]"); plt.ylabel(r"$\theta_{exp}$ [rad]")
-plt.scatter(hsTheta[0],hsThetaEx[0], s=8, lw=0.5, ec="k", c=colors[6],rasterized=True)
-fig.colorbar(h[3], ax = ax, label="Particle Interactions")
+plt.scatter(ak.flatten(hsTheta),ak.flatten(hsThetaEx), s=2, lw=0.0, ec="k", c="r", alpha=0.02,rasterized=True)
+fig.colorbar(h[3], ax = ax, label="BIB Particle Interactions")
+commonStuff(ax)
+
+ax.text(0.5,0.05, "Collision Product Interactions", rotation=0,
+        verticalalignment='center', horizontalalignment='left',
+        multialignment="right", transform=ax.transAxes, fontsize=10, c="w")
+plt.plot([0.47],[0.054],"s",c="r",ms=6,mew=0.5,mec="w",alpha=0.8,transform=ax.transAxes)
 
 plt.savefig(f"thetaEx_theta_{TimeRes}_{ThetaRes}.pdf")
 
+# plt.show()
 
 ######
 
 fig,ax = plt.subplots()
 
-h=plt.hist2d(tmpX[3], tmpTheta, bins=[100,100], cmap=cmap, rasterized=True)
-plt.xlabel(r"$z$ [mm]"); plt.ylabel(r"$\theta$ [rad]")
-plt.scatter(hsX[3][0],hsTheta[0], s=8, lw=0.5, ec="k", c=colors[6],rasterized=True)
-fig.colorbar(h[3], ax = ax, label="Particle Interactions")
+h=plt.hist2d(tmpX[3], tmpR, bins=[100,200], range=[[-65,65], [0,140]], cmap=cmap, rasterized=True)#,vmax=1200, norm=mpl.colors.LogNorm())
+plt.xlabel(r"$z$ [mm]"); plt.ylabel(r"$r$ [mm]")
+# plt.scatter(ak.flatten(hsX[3]),ak.flatten(hsR), s=2, lw=0.0, ec="k", c="r", alpha=0.02,rasterized=True)
+fig.colorbar(h[3], ax = ax, label="BIB Particle Interactions")
+commonStuff(ax,True)
 
-plt.savefig(f"z_theta_{TimeRes}_{ThetaRes}.pdf")
+print("signal integral",len(ak.flatten(hsR) ))
+print("bib integral",len( tmpR ))
+
+plt.savefig(f"z_r_{TimeRes}_{ThetaRes}.pdf")
 
 ######
 
 fig,ax = plt.subplots()
 
-h=plt.hist2d(tmpX[3], tmpThetaDiff, bins=[100,100], cmap=cmap, rasterized=True)
+
+x,y = tmpAbsThetaDiff,tmpAbsTimeDiff
+z=np.array(list(zip(x,y,tmpX[3],tmpR) ) )
+# print(len(tmpAbsTimeDiff), len(tmpR))
+# import sys
+# sys.exit()
+thetacut,timecut = 0.1,0.05
+z = z[z[:, 0] < thetacut]
+z = z[z[:, 1] < timecut]
+bib = z
+# print(z[0])
+
+x,y = SignalAbsThetaDiff,SignalAbsTimeDiff
+z=np.array(list(zip(x,y,ak.flatten(hsX[3]),ak.flatten(hsR) ) ) )
+z = z[z[:, 0] < thetacut]
+z = z[z[:, 1] < timecut]
+
+print("signal integral",z.shape)
+print("bib integral",bib.shape)
+
+z = np.concatenate((z,bib))
+
+h=plt.hist2d(z[:,2], z[:,3], bins=[100,200], range=[[-65,65], [0,140]], cmap=cmap, rasterized=True)#,vmax=1200, norm=mpl.colors.LogNorm())
+plt.xlabel(r"$z$ [mm]"); plt.ylabel(r"$r$ [mm]")
+# plt.scatter(ak.flatten(hsX[3]),ak.flatten(hsR), s=2, lw=0.0, ec="k", c="r", alpha=0.02,rasterized=True)
+fig.colorbar(h[3], ax = ax, label="BIB Particle Interactions")
+commonStuff(ax,True,r"$\sigma(t)=20$ ps, $\sigma(\theta)=0.01$ rad"+"\n"+r"$|t_\Delta|<50$ ps, $|\theta_\Delta|<0.05$ rad")
+
+plt.savefig(f"z_r_afterCut_{TimeRes}_{ThetaRes}.pdf")
+
+######
+
+fig,ax = plt.subplots()
+
+h=plt.hist2d(tmpX[3], tmpThetaDiff, bins=[200,200], cmap=cmap, rasterized=True)
 plt.xlabel(r"$z$ [mm]"); plt.ylabel(r"$\theta_{\Delta}$ [rad]")
-plt.scatter(hsX[3][0],hsThetaDiff[0], s=8, lw=0.5, ec="k", c=colors[6],rasterized=True)
-fig.colorbar(h[3], ax = ax, label="Particle Interactions")
+plt.scatter(ak.flatten(hsX[3]),ak.flatten(hsThetaDiff), s=2, lw=0.0, ec="k", c="r", alpha=0.02,rasterized=True)
+fig.colorbar(h[3], ax = ax, label="BIB Particle Interactions")
+commonStuff(ax,False)
 
 plt.savefig(f"z_thetaDelta_{TimeRes}_{ThetaRes}.pdf")
 
@@ -261,10 +389,11 @@ plt.savefig(f"z_thetaDelta_{TimeRes}_{ThetaRes}.pdf")
 
 fig,ax = plt.subplots()
 
-h=plt.hist2d(tmpX[3], tmpTime, bins=[100,100], cmap=cmap, rasterized=True)
+h=plt.hist2d(tmpX[3], tmpTime, bins=[200,200], cmap=cmap, rasterized=True)
 plt.xlabel(r"$z$ [mm]"); plt.ylabel(r"$t$ [ns]")
-plt.scatter(hsX[3][0],hsTime[0], s=8, lw=0.5, ec="k", c=colors[6],rasterized=True)
-fig.colorbar(h[3], ax = ax, label="Particle Interactions")
+plt.scatter(ak.flatten(hsX[3]),ak.flatten(hsTime), s=2, lw=0.0, ec="k", c="r", alpha=0.02,rasterized=True)
+fig.colorbar(h[3], ax = ax, label="BIB Particle Interactions")
+commonStuff(ax,False)
 
 plt.savefig(f"z_t_{TimeRes}_{ThetaRes}.pdf")
 
@@ -273,10 +402,12 @@ plt.savefig(f"z_t_{TimeRes}_{ThetaRes}.pdf")
 
 fig,ax = plt.subplots()
 
-h=plt.hist2d(tmpX[3], tmpTimeDiff, bins=[100,100], cmap=cmap, rasterized=True)
+h=plt.hist2d(tmpX[3], tmpTimeDiff, bins=[200,200], cmap=cmap, rasterized=True)
 plt.xlabel(r"$z$ [mm]"); plt.ylabel(r"$t_{\Delta}$ [ns]")
-plt.scatter(hsX[3][0],hsTimeDiff[0], s=8, lw=0.5, ec="k", c=colors[6],rasterized=True)
-fig.colorbar(h[3], ax = ax, label="Particle Interactions")
+# plt.scatter(ak.flatten(hsX[3]),ak.flatten(hsTimeDiff), s=2, lw=0.5, ec="k", c=colors[6], alpha=0.02,rasterized=True)
+plt.scatter(ak.flatten(hsX[3]),ak.flatten(hsTimeDiff), s=2, lw=0.0, ec="k", c="r", alpha=0.02,rasterized=True)
+fig.colorbar(h[3], ax = ax, label="BIB Particle Interactions")
+commonStuff(ax,False)
 
 plt.savefig(f"z_tDelta_{TimeRes}_{ThetaRes}.pdf")
 
