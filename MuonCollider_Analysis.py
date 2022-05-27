@@ -15,26 +15,23 @@ import pickle
 
 from awkward.layout import ListOffsetArray64
 
-nTimeCuts = 40
-nThetaCuts = 20
+nTimeCuts = 100
+nThetaCuts = 50
 
-# TimeRes = 0.03
-# ThetaRes = 0.025
-
-# TimeResList = [0.03]
-# ThetaResList = [0.025]
+# nTimeCuts = 10
+# nThetaCuts = 30
 
 
+ResPairs = [ #time, theta
+# (0.02,0.05),
 
-TimeResList = [0.03,0.05,0.1]
-ThetaResList = [0.015,0.025,0.035]
 
-ResPairs = [
-(0.1,0.035),
-(0.05,0.025),
-(0.03,0.015),
-(0.03,0.035),
-(0.1,0.015),
+(0.05,2),
+(0.1,0.1),
+(0.05,0.1),
+(0.02,0.1),
+
+(0.0,0.0),
 ]
 
 def convertNBIBToFrac(x):
@@ -59,12 +56,15 @@ markers = ["o","s","D","^","v","<",">","*","X","p"]
 
 
 # hard scatter only (0 BIB)
-noBIBFile = uproot.open(f"lctuple_999.root")
+# noBIBFile = uproot.open(f"lctuple_999.root")
+noBIBFile = uproot.open(f"fromLuke052622/JetHistograms_All.root")
 noBIBTree = noBIBFile["LCTupleDefault"]
 
 # BIB only
 fullBIBFile = uproot.open("lctuple_2992_trackerSimHits.root")
+# fullBIBFile = uproot.open("fromLuke052622/JetHistograms_All.root")
 fullBIBTree =  fullBIBFile["MyLCTuple"]
+# fullBIBTree =  fullBIBFile["LCTupleDefault"]
 
 # w/ full BIB
 tmpP = np.array([fullBIBTree["stedp"].array()[0], fullBIBTree["stmox"].array()[0], fullBIBTree["stmoy"].array()[0], fullBIBTree["stmoz"].array()[0]])
@@ -163,6 +163,9 @@ for TimeRes,ThetaRes in ResPairs: #zip(TimeResList,ThetaResList):
     hsTimeDiff = np.subtract(hsTime,hsTimeEx)
     hsAbsTimeDiff = np.absolute(hsTimeDiff)
 
+    print(len(hsMom))
+    print(len(hsTimeDiff))
+
     ###### This whole chunk of code is to unpack all 999 events into 1 single tuple and then find at what index the momentum is greater than 1 GeV.
     hsMomCut = []
 
@@ -210,6 +213,7 @@ for TimeRes,ThetaRes in ResPairs: #zip(TimeResList,ThetaResList):
     hsCompleteCut = np.intersect1d(hsTimeMomCut, hsThetaMomCut)
 
     ###### Again this unpacks the 999 tuples into one tuple for our needs
+    hsMomFlat = [y for x in hsMom for y in x]
     hsTimeDiffComplete = [y for x in hsTimeDiff for y in x]
     hsThetaDiffComplete = [y for x in hsThetaDiff for y in x]
     ######
@@ -218,11 +222,29 @@ for TimeRes,ThetaRes in ResPairs: #zip(TimeResList,ThetaResList):
     SignalAbsTimeDiff = []
     SignalAbsThetaDiff = []
 
-    for i in hsMomCut[0]:
-        SignalTimeDiff.append(hsTimeDiffComplete[i])
-        SignalThetaDiff.append(hsThetaDiffComplete[i])
-        SignalAbsTimeDiff.append( abs(hsTimeDiffComplete[i] ))
-        SignalAbsThetaDiff.append(abs(hsThetaDiffComplete[i]))
+    # find where the hsMomFlat is greater than cut
+    # hsMomFlatCutBools = np.greater(hsMomFlat,1)
+    hsMomFlat = np.array(hsMomFlat)
+    indexArr = np.argwhere(hsMomFlat < 1)
+
+    hsTimeDiffComplete = np.delete(hsTimeDiffComplete,indexArr)
+    hsThetaDiffComplete = np.delete(hsThetaDiffComplete,indexArr)
+    # print(len(hsTimeDiffComplete) )
+
+    SignalTimeDiff = list(hsTimeDiffComplete)
+    SignalThetaDiff = list(hsThetaDiffComplete)
+
+    SignalAbsTimeDiff =  list(np.abs(hsTimeDiffComplete) )
+    SignalAbsThetaDiff = list(np.abs(hsThetaDiffComplete) )
+
+    # for i in hsMomCut[0]:
+    #     SignalTimeDiff.append(hsTimeDiffComplete[i])
+    #     SignalThetaDiff.append(hsThetaDiffComplete[i])
+    #     SignalAbsTimeDiff.append(abs(hsTimeDiffComplete[i] ))
+    #     SignalAbsThetaDiff.append(abs(hsThetaDiffComplete[i]))
+
+    # print(hsTimeDiffComplete[1])
+    # sys.exit()
 
     ######
 
@@ -230,14 +252,65 @@ for TimeRes,ThetaRes in ResPairs: #zip(TimeResList,ThetaResList):
 
     h=plt.hist2d(tmpThetaDiff, tmpTimeDiff, bins=[30,30])
     plt.xlabel("θ-θ$_{ex}$ [rad]"); plt.ylabel("T-ToF [ns]")
-    plt.scatter(SignalThetaDiff,SignalTimeDiff,s=[[5,]*len(SignalTimeDiff)], c=colors[6])
+    plt.scatter(SignalThetaDiff,SignalTimeDiff,s=[[5,]*len(SignalTimeDiff)], c="k")
     fig.colorbar(h[3], ax = ax)
-    # plt.show()
 
     plt.savefig(f"test_{TimeRes}_{ThetaRes}.png")
 
-    timecutlist = np.linspace(0.5*TimeRes,5*TimeRes, nTimeCuts)
-    thetacutlist = np.linspace(0.5*ThetaRes,5*ThetaRes, nThetaCuts)
+    if TimeRes and ThetaRes:
+        # timecutlist = np.linspace(0.1*TimeRes,7*TimeRes, nTimeCuts)
+        # thetacutlist = np.linspace(1*ThetaRes,12*ThetaRes, nThetaCuts)
+        if TimeRes<0.05:
+            timecutlist = np.linspace(0.03,0.1, nTimeCuts)
+        else:
+            timecutlist = np.linspace(0.07,0.2, nTimeCuts)
+        if ThetaRes<0.05:
+            thetacutlist = np.linspace(0.03,1, nThetaCuts)
+        else:
+            thetacutlist = np.linspace(0.10,0.3, nThetaCuts)
+        if TimeRes==0.01 and ThetaRes==0.01:
+            timecutlist = np.linspace(0.018,0.05, nTimeCuts)
+            thetacutlist = np.linspace(0.045,0.3, nThetaCuts)
+
+
+    else:
+        timecutlist = np.linspace(0.01,0.1, nTimeCuts)
+        thetacutlist = np.linspace(0.1,0.8, nThetaCuts)
+
+
+
+
+    ######################################################################
+    ######################################################################
+    ######################################################################
+    ######################################################################
+
+# (0.05,2),
+# (0.1,0.1),
+# (0.05,0.1),
+# (0.02,0.1),
+
+    if (TimeRes, ThetaRes) == (0,0):
+        timecutlist = np.linspace(0.01,0.1, nTimeCuts)
+        thetacutlist = np.linspace(0.15,1, nThetaCuts)
+    elif (TimeRes, ThetaRes) == (0.05,2):
+        timecutlist = np.linspace(0.01,TimeRes*5, nTimeCuts)
+        thetacutlist = np.linspace(0.15,ThetaRes*5, nThetaCuts)
+    elif (TimeRes, ThetaRes) == (0.1,0.1):
+        timecutlist = np.linspace(0.01,TimeRes*5, nTimeCuts)
+        thetacutlist = np.linspace(0.15,ThetaRes*7, nThetaCuts)
+    elif (TimeRes, ThetaRes) == (0.05,0.1):
+        timecutlist = np.linspace(0.01,TimeRes*5, nTimeCuts)
+        thetacutlist = np.linspace(0.15,1, nThetaCuts)
+    else:
+        timecutlist = np.linspace(0.01,0.1, nTimeCuts)
+        thetacutlist = np.linspace(0.15,1, nThetaCuts)
+
+    ######################################################################
+    ######################################################################
+    ######################################################################
+    ######################################################################
+
 
     import matplotlib.cm as cm
     colors = cm.jet(np.linspace(0, 1, len(timecutlist)))
@@ -247,33 +320,39 @@ for TimeRes,ThetaRes in ResPairs: #zip(TimeResList,ThetaResList):
 
     import itertools
 
+    print(f"Starting Loop for {TimeRes} {ThetaRes}")
+
+
+    bibx,biby = tmpAbsThetaDiff,tmpAbsTimeDiff
+    bibz=np.array(list(zip(bibx,biby) ) )
+    sigx,sigy = SignalAbsThetaDiff,SignalAbsTimeDiff
+    sigz=np.array(list(zip(sigx,sigy) ) )
     for i,timecut in enumerate( timecutlist ):
         bgEffs  = []
         sigEffs = []
-        for thetacut in thetacutlist:
-            x,y = tmpAbsThetaDiff,tmpAbsTimeDiff
-            z=np.array(list(zip(x,y) ) )
-            z = z[z[:, 0] < thetacut]
+        for j,thetacut in enumerate(thetacutlist):
+            z = bibz[bibz[:, 0] < thetacut]
             z = z[z[:, 1] < timecut]
-            bgEffs.append(1 - (len(z) / len(x)) )
+            bgEffs.append( (len(z) / len(bibx)) )
 
-            x,y = SignalAbsThetaDiff,SignalAbsTimeDiff
-            z=np.array(list(zip(x,y) ) )
-            z = z[z[:, 0] < thetacut]
+            # z=np.array(list(zip(x,y) ) )
+            z = sigz[sigz[:, 0] < thetacut]
             z = z[z[:, 1] < timecut]
-            sigEffs.append(len(z) / len(x))
+            sigEffs.append(len(z) / len(sigx))
             
-            print(timecut,thetacut, sigEffs[-1], bgEffs[-1])
+            # print(i,j,nThetaCuts*nTimeCuts, TimeRes,ThetaRes,timecut,thetacut, sigEffs[-1], bgEffs[-1])
+            # print(i,j,nThetaCuts*nTimeCuts, TimeRes,ThetaRes,timecut,thetacut)
 
         # print(bgEffs,sigEffs)
         sigEffsDict[i] = sigEffs
         bgEffsDict[i] = bgEffs
 
         # plt.plot(sigEffs,bgEffs,c=colors[i],alpha=0.5)
+    print(f"Done with {TimeRes} {ThetaRes}")
 
     output = [sigEffsDict,bgEffsDict]
 
-    with open(f"effs_{TimeRes}_{ThetaRes}.pkl","wb") as f:
+    with open(f"EffDict_{TimeRes}_{ThetaRes}.pickle","wb") as f:
         pickle.dump(output,f)
 
 
